@@ -1,0 +1,38 @@
+# Runs after every install/upgrade; waits for Postgres, then `alembic upgrade head`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-migrate
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "ipinfo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["migrate", "--wait", "{{ .Values.migrate.waitSeconds }}"]
+          env:
+            - name: IPINFO_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ipinfo.dbUriSecret" . }}
+                  key: uri
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 256Mi}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}

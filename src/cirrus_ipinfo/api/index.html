@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIRRUS IP info</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* CIRRUS site look (NCAR/cirrus-user-apps-web static/style.css): Poppins, NCAR blues,
+     warm grey page, white rounded cards, navy footer with yellow headings. */
+  :root {
+    color-scheme: light;
+    --ncar-blue: #0057C2; --ncar-blue-dark: #00357A; --ncar-blue-light: #42C0FF; --ncar-dark: #011837;
+    --page: #F1F0EE; --surface: #ffffff; --bar: #f8f9fa; --ink: #011837; --ink-2: #00357A; --muted: #6c757d;
+    --line: #e1e0d9; --ring: rgba(11,11,11,0.10); --accent: var(--ncar-blue); --wash: rgba(0,87,194,0.06);
+    /* chart palette (dataviz reference palette, light steps) */
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+    --other: #c3c2b7; --unknown: #898781;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.6 'Poppins', Arial, sans-serif; }
+  a { color: var(--ncar-blue); }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+  .muted { color: var(--muted); } .ink2 { color: var(--ink-2); }
+
+  /* utility bar + hero */
+  .utility { background: var(--bar); border-bottom: 1px solid #dee2e6; }
+  .utility .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 96px; }
+  .utility img { height: 56px; width: auto; display: block; }
+  .utility a.contact { font-weight: 600; text-decoration: none; }
+  .utility a.contact:hover { color: #0779bf; }
+  @media (max-width: 640px) { .utility img { height: 40px; } .utility a.contact { display: none; } }
+  .hero { background: linear-gradient(135deg, #0057C2 50%, #00357A 80%); position: relative; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background: url('/static/ncar-waves-blue.png') no-repeat right center;
+                  background-size: contain; opacity: .12; }
+  .hero .wrap { position: relative; padding: 36px 16px 32px; display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+  .hero h1 { color: #fff; font-size: 2rem; font-weight: 700; margin: 0 0 4px; }
+  .hero p { color: rgba(255,255,255,.92); margin: 0; max-width: 720px; }
+  .hero a.docs { color: #fff; border: 1px solid rgba(255,255,255,.7); border-radius: 6px; padding: 6px 14px; text-decoration: none; font-weight: 500; }
+  .hero a.docs:hover { background: rgba(255,255,255,.12); }
+
+  main.wrap { padding-top: 24px; padding-bottom: 48px; }
+  h2 { font-size: 1.15rem; font-weight: 600; color: var(--ink-2); margin: 0 0 10px; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 16px; align-items: end; }
+  .filters label { display: grid; gap: 2px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  select, input { padding: 0 10px; height: 38px; border: 1px solid #ced4da; border-radius: 6px; background: #fff;
+                  color: var(--ink); font: inherit; font-size: 14px; min-width: 0; }
+  select { max-width: 260px; } select:disabled { background: #f1f1ef; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--ncar-blue-dark); border-radius: 6px; overflow: hidden; height: 38px; }
+  .seg button { border: 0; background: #fff; color: var(--ncar-blue-dark); padding: 0 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--ncar-blue-dark); color: #fff; }
+  .field { display: grid; gap: 2px; }
+  .flabel { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; min-height: 38px; align-items: center; }
+  .pills button { height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid var(--ncar-blue-dark); background: #fff;
+                  color: var(--ncar-blue-dark); font: inherit; font-size: 13px; cursor: pointer; }
+  .pills button[aria-pressed="true"] { background: var(--ncar-blue-dark); color: #fff; }
+  .pills button:focus-visible, .seg button:focus-visible { outline: 2px solid var(--ncar-blue-light); outline-offset: 2px; }
+  .switch { cursor: pointer; user-select: none; }
+  .switch .sw-row { display: flex; align-items: center; gap: 8px; height: 38px; font-size: 14px; font-weight: 400; color: var(--ink); }
+  .switch input { appearance: none; width: 38px; height: 22px; padding: 0; border-radius: 11px; background: #ced4da; position: relative; cursor: pointer; border: 0; transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .2s; }
+  .switch input:checked { background: var(--ncar-blue); } .switch input:checked::after { left: 19px; }
+
+  .card { background: var(--surface); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.05); padding: 20px; }
+  .crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; font-size: 14px; }
+  .crumbs button { border: 0; background: none; color: var(--ncar-blue); font: inherit; padding: 0; cursor: pointer; }
+  .crumbs span.sep { color: var(--muted); }
+  .crumbs .here { color: var(--ink); font-weight: 600; }
+
+  .viz { display: grid; grid-template-columns: minmax(240px, 340px) 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 760px) { .viz { grid-template-columns: 1fr; } .pie-wrap { max-width: 320px; margin: 0 auto; } }
+  .pie-wrap { position: relative; }
+  svg.pie { width: 100%; height: auto; display: block; }
+  svg.pie path { cursor: pointer; transition: opacity .12s; }
+  svg.pie path.dim { opacity: .35; }
+  svg.pie text.pct { font-size: 12px; font-weight: 600; pointer-events: none; }
+  .center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+  .center .big { font-size: 26px; font-weight: 600; color: var(--ink); } .center .lbl { font-size: 13px; color: var(--ink-2); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr { cursor: pointer; } tbody tr:hover, tbody tr.hot { background: var(--wash); }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; box-shadow: inset 0 0 0 1px var(--ring); }
+  .name { overflow-wrap: anywhere; }
+  .legend-scroll { max-height: 440px; overflow: auto; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  .tip { position: fixed; pointer-events: none; background: #fff; color: var(--ink); border: 1px solid var(--line);
+         box-shadow: 0 4px 16px rgba(0,0,0,.12); border-radius: 8px; padding: 8px 10px; font-size: 13px; display: none; z-index: 10; max-width: 280px; }
+  .tip b { display: block; margin-bottom: 2px; }
+
+  form.lookup { display: flex; gap: 8px; margin: 0 0 12px; }
+  form.lookup input { flex: 1; }
+  .btn, form.lookup button { height: 38px; padding: 0 18px; border: 0; border-radius: 6px; background: var(--ncar-blue); color: #fff;
+                             font: inherit; font-weight: 500; cursor: pointer; }
+  .btn:hover, form.lookup button:hover { background: var(--ncar-blue-dark); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+  dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+  section + section { margin-top: 28px; }
+  .empty { padding: 32px; text-align: center; color: var(--muted); }
+
+  footer.org { background: var(--ncar-dark); color: #fff; margin-top: 16px; }
+  footer.org .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 32px; padding: 28px 16px; }
+  footer.org h3 { color: #fdd509; font-size: 1.15rem; font-weight: 600; margin: 0 0 8px; }
+  footer.org ul { list-style: none; margin: 0; padding: 0; }
+  footer.org li { padding: 2px 0; font-size: 14px; }
+  footer.org a { color: #42c0ff; text-decoration: none; } footer.org a:hover { color: #86d3fc; }
+  footer.org p { margin: 0; font-size: 13px; color: rgba(255,255,255,.8); }
+</style>
+</head>
+<body>
+<div class="utility">
+  <div class="wrap">
+    <a href="https://ncar.ucar.edu"><img src="/static/cisl-logo.png" alt="NSF NCAR CISL"></a>
+    <a class="contact" href="mailto:cirrus-admin@ucar.edu">Contact CIRRUS Admins</a>
+  </div>
+</div>
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <h1>CIRRUS IP info</h1>
+      <p>Who is using CIRRUS: client traffic by category, organisation and application.</p>
+    </div>
+    <a class="docs" href="/docs">API docs</a>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="filters" role="group" aria-label="Filters">
+    <div class="field">
+      <span class="flabel" id="ing-label">Ingress</span>
+      <div class="pills" id="ingress" role="group" aria-labelledby="ing-label">
+        <button type="button" data-v="traefik-external">Traefik external</button>
+        <button type="button" data-v="traefik-internal">Traefik internal</button>
+        <button type="button" data-v="nginx-external" title="ingress-nginx logs a proxy/loopback address instead of the client">nginx external</button>
+        <button type="button" data-v="nginx-internal" title="ingress-nginx logs a proxy/loopback address instead of the client">nginx internal</button>
+      </div>
+    </div>
+    <label>Namespace <select id="ns"><option value="">All namespaces</option></select></label>
+    <label>Application (host) <select id="host" disabled><option value="">All applications</option></select></label>
+    <label>Period
+      <select id="days">
+        <option value="1">Last day</option><option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+      </select>
+    </label>
+    <div class="seg" role="group" aria-label="Measure">
+      <button id="m-requests" aria-pressed="true">Requests</button><button id="m-ips" aria-pressed="false">Unique IPs</button>
+    </div>
+  </div>
+
+  <section class="card" aria-live="polite">
+    <nav class="crumbs" id="crumbs" aria-label="Drill-down path"></nav>
+    <div id="chart"></div>
+  </section>
+
+  <section class="card">
+    <h2>Look up an IP</h2>
+    <form class="lookup" id="f"><input id="ip" placeholder="IP address, e.g. 128.117.65.84" autocomplete="off" aria-label="IP address"><button>Look up</button></form>
+    <div id="result"></div>
+  </section>
+</main>
+
+<footer class="org">
+  <div class="wrap">
+    <div>
+      <h3>CIRRUS</h3>
+      <ul>
+        <li><a href="https://ncar-hpc-docs.readthedocs.io/en/latest/compute-systems/cirrus/guides/01-intro/">Documentation</a></li>
+        <li><a href="https://grafana.k8s.ucar.edu/">Grafana</a></li>
+        <li><a href="mailto:cirrus-admin@ucar.edu">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>This service</h3>
+      <ul>
+        <li><a href="/docs">API docs</a></li>
+        <li><a href="/openapi.json">OpenAPI spec</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Data sources</h3>
+      <p>IP address data powered by <a href="https://ipinfo.io">IPinfo</a> (CC BY-SA 4.0).
+        IP Geolocation by <a href="https://db-ip.com">DB-IP</a> (CC BY 4.0). Routing from CAIDA RouteViews Prefix2AS;
+        registry data from the five RIRs.</p>
+    </div>
+  </div>
+</footer>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+// ------------------------------------------------------------------ state
+const LEVELS = ["category", "subcategory", "organisation", "ip"];
+const MAX_SLICES = 7;              // the rest fold into "Other" (still listed, still clickable, below)
+const ALL_INGRESS = ["traefik-external", "traefik-internal", "nginx-external", "nginx-internal"];
+const DEFAULT_INGRESS = ["traefik-external", "traefik-internal"];
+const state = { ingress: [...DEFAULT_INGRESS], ns: "", host: "", days: "7", measure: "requests", path: [] };   // path: keys chosen so far
+
+// Category colours are fixed (colour follows the entity, never its rank).
+const CAT_COLOR = {
+  internal: "--s1", cloud: "--s2", education_research: "--s3", government: "--s4",
+  nonprofit: "--s5", commercial: "--s6", anonymizer: "--s7", automated: "--s8", special: "--other", unknown: "--unknown",
+};
+const CAT_LABEL = {
+  internal: "Internal (UCAR/NCAR)", cloud: "Cloud & hosting", education_research: "Education & research",
+  government: "Government", nonprofit: "Non-profit", commercial: "Commercial (ISPs & companies)",
+  anonymizer: "Anonymizers (Tor)", automated: "Scanners & crawlers", special: "Special-purpose / private",
+  unknown: "Unknown",
+};
+const SUB_LABEL = {
+  no_ptr: "No reverse DNS name", unclassified: "Unclassified (has a name, no rule matched)", ncar_ucar: "NCAR / UCAR",
+  private_use: "Private use", research_network: "Research network", research_infrastructure: "Research infrastructure",
+  us_government: "US government", us_military: "US military", isp_broadband: "ISPs & telecoms", k12: "K-12",
+  other_hosting: "Other hosting", gcp: "Google Cloud", aws: "AWS", azure: "Azure", oracle: "Oracle Cloud",
+  cloudflare: "Cloudflare", tor: "Tor exit nodes", org: ".org domains",
+  hosting: "Hosting / data centres", microsoft: "Microsoft", google: "Google (non-cloud)", alibaba: "Alibaba Cloud",
+  tencent: "Tencent Cloud", huawei: "Huawei Cloud", digitalocean: "DigitalOcean", akamai_linode: "Akamai / Linode",
+  vultr: "Vultr", ovh: "OVHcloud", hetzner: "Hetzner", company: "Other companies", technology: "Technology companies",
+  security_scanner: "Security scanners", search_engine: "Search engines", seo_crawler: "SEO crawlers",
+  ai_crawler: "AI crawlers", link_preview: "Link previews", other: "Other", k8s_node: "CIRRUS cluster nodes",
+};
+const SLOTS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7"];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "—").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = n => Number(n ?? 0).toLocaleString();
+const pct = (v, t) => t ? (100 * v / t) : 0;
+const pctTxt = p => p >= 10 ? p.toFixed(0) + "%" : p >= 0.1 ? p.toFixed(1) + "%" : "<0.1%";
+const nice = (level, key) => level === "category" ? (CAT_LABEL[key] || key)
+                           : level === "subcategory" ? (SUB_LABEL[key] || key.replace(/_/g, " "))
+                           : key;
+const measureLabel = () => state.measure === "requests" ? "requests" : "unique IPs";
+
+// ------------------------------------------------------------- URL state
+function readUrl() {
+  const q = new URLSearchParams(location.search);
+  const ing = (q.get("ingress") || "").split(",").filter(x => ALL_INGRESS.includes(x));
+  state.ingress = ing.length ? ing : [...DEFAULT_INGRESS];
+  state.ns = q.get("ns") || ""; state.host = q.get("host") || "";
+  state.days = q.get("days") || "7"; state.measure = q.get("m") === "ips" ? "ips" : "requests";
+  state.path = (q.get("path") || "").split("/").filter(Boolean).map(decodeURIComponent).slice(0, 3);
+  return q.get("ip");
+}
+function writeUrl() {
+  const q = new URLSearchParams();
+  if (state.ingress.join() !== DEFAULT_INGRESS.join()) q.set("ingress", state.ingress.join(","));
+  if (state.ns) q.set("ns", state.ns); if (state.host) q.set("host", state.host);
+  if (state.days !== "7") q.set("days", state.days); if (state.measure === "ips") q.set("m", "ips");
+  if (state.path.length) q.set("path", state.path.map(encodeURIComponent).join("/"));
+  history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
+}
+
+// ------------------------------------------------------------ data
+function params(extra = {}) {
+  const p = new URLSearchParams({ days: state.days, ...extra });
+  p.set("ingress", state.ingress.join(","));
+  if (state.ns) p.set("namespace", state.ns);
+  if (state.host) p.set("host", state.host);
+  state.path.forEach((k, i) => p.set(LEVELS[i], k));
+  return p;
+}
+async function loadApplications() {
+  // Namespaces/hosts for the selected ingress controllers, both clusters together.
+  const q = new URLSearchParams({ days: Math.max(30, +state.days), ingress: state.ingress.join(",") });
+  const d = await (await fetch("/v1/applications?" + q)).json();
+  window.__apps = d.namespaces;
+  document.querySelectorAll("#ingress button").forEach(b =>
+    b.setAttribute("aria-pressed", state.ingress.includes(b.dataset.v)));
+  const ns = $("ns");
+  ns.innerHTML = '<option value="">All namespaces</option>' + d.namespaces.map(n => {
+    const via = state.ingress.length > 1 ? " · " + Object.keys(n.ingress).sort().join(", ") : "";
+    return `<option value="${esc(n.namespace)}">${esc(n.namespace)}${n.tenant && !n.tenant.startsWith("_") ? " · " + esc(n.tenant) : ""}${via}</option>`;
+  }).join("");
+  ns.value = d.namespaces.some(n => n.namespace === state.ns) ? state.ns : "";
+  state.ns = ns.value;
+  fillHosts();
+}
+function fillHosts() {
+  const sel = $("host");
+  const n = (window.__apps || []).find(x => x.namespace === state.ns);
+  sel.disabled = !n;
+  sel.innerHTML = '<option value="">All applications</option>' + (n ? n.hosts.map(h =>
+    `<option value="${esc(h.host)}">${esc(h.host)}</option>`).join("") : "");
+  sel.value = n && n.hosts.some(h => h.host === state.host) ? state.host : "";
+  state.host = sel.value;
+}
+
+// ------------------------------------------------------------ crumbs
+function renderCrumbs() {
+  const parts = [`<button data-depth="0">All traffic</button>`];
+  state.path.forEach((k, i) => {
+    parts.push('<span class="sep">›</span>');
+    parts.push(i === state.path.length - 1 ? `<span class="here">${esc(nice(LEVELS[i], k))}</span>`
+                                           : `<button data-depth="${i + 1}">${esc(nice(LEVELS[i], k))}</button>`);
+  });
+  if (!state.path.length) parts[0] = '<span class="here">All traffic</span>';
+  const scope = ["mlc1 + nwc1", state.ingress.join(" + "), state.ns && `namespace ${state.ns}`, state.host]
+                .filter(Boolean).join(" · ");
+  $("crumbs").innerHTML = parts.join(" ") + (scope ? ` <span class="muted">— ${esc(scope)}</span>` : "");
+  $("crumbs").querySelectorAll("button[data-depth]").forEach(b =>
+    b.onclick = () => { state.path = state.path.slice(0, +b.dataset.depth); render(); });
+}
+
+// ------------------------------------------------------------ pie
+function arc(cx, cy, r0, r1, a0, a1) {
+  const p = (r, a) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  if (a1 - a0 >= 2 * Math.PI - 1e-6) a1 = a0 + 2 * Math.PI - 1e-4;     // full circle
+  const [x0, y0] = p(r1, a0), [x1, y1] = p(r1, a1), [x2, y2] = p(r0, a1), [x3, y3] = p(r0, a0);
+  return `M${x0},${y0} A${r1},${r1} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${r0},${r0} 0 ${large} 0 ${x3},${y3} Z`;
+}
+
+function slicesFor(level, rows) {
+  const m = state.measure;
+  // colour: fixed per category; below that by traffic rank (requests), so toggling the measure doesn't repaint
+  const byReq = [...rows].sort((a, b) => b.requests - a.requests);
+  const colour = new Map();
+  if (level === "category") rows.forEach(r => colour.set(r.key, CAT_COLOR[r.key] || "--other"));
+  else byReq.forEach((r, i) => colour.set(r.key, i < MAX_SLICES ? SLOTS[i] : "--other"));
+  const sorted = [...rows].sort((a, b) => b[m] - a[m]);
+  const main = sorted.filter(r => colour.get(r.key) !== "--other");
+  const rest = sorted.filter(r => colour.get(r.key) === "--other");
+  const slices = main.map(r => ({ key: r.key, label: nice(level, r.key), value: r[m], row: r, color: colour.get(r.key) }));
+  if (rest.length) slices.push({ key: null, label: `Other (${rest.length})`, value: rest.reduce((s, r) => s + r[m], 0),
+                                 row: null, color: "--other", rest });
+  return { slices, sorted, colour };
+}
+
+let renderToken = 0;
+async function render() {
+  writeUrl(); renderCrumbs();
+  const level = LEVELS[state.path.length];
+  const chart = $("chart");
+  chart.innerHTML = '<div class="empty">Loading…</div>';
+  const token = ++renderToken;
+  const d = await (await fetch("/v1/breakdown?" + params({ level, limit: level === "ip" ? 500 : 1000 }))).json();
+  if (token !== renderToken) return;           // a newer selection has been made meanwhile
+  const total = state.measure === "requests" ? d.requests : d.ips;
+  if (!d.rows.length) {
+    chart.innerHTML = '<div class="empty">No traffic for this selection.' +
+      (state.path.length ? ' <button class="btn" id="back">Back to all traffic</button>' : '') + '</div>';
+    $("back")?.addEventListener("click", () => { state.path = []; render(); });
+    return;
+  }
+  const period = d.first_day === d.last_day ? d.last_day : `${d.first_day} → ${d.last_day}`;
+
+  if (level === "ip") { renderIpTable(d, total, period); return; }
+
+  const { slices, sorted, colour } = slicesFor(level, d.rows);
+  const sum = slices.reduce((s, x) => s + x.value, 0) || 1;
+  const S = 300, C = S / 2, R1 = 140, R0 = 84;
+  let a = 0, paths = "", labels = "";
+  slices.forEach((s, i) => {
+    const a1 = a + 2 * Math.PI * s.value / sum;
+    if (s.value > 0) {
+      paths += `<path d="${arc(C, C, R0, R1, a, a1)}" fill="var(${s.color})" stroke="var(--surface)" stroke-width="2"
+                 data-i="${i}" ${s.key !== null ? 'tabindex="-1"' : ""}></path>`;
+      const p = pct(s.value, sum);
+      if (p >= 6) {
+        const mid = (a + a1) / 2, rr = (R0 + R1) / 2;
+        const ink = (s.color === "--s4" || s.color === "--other") ? "#0b0b0b" : "#ffffff";
+        labels += `<text class="pct" x="${C + rr * Math.sin(mid)}" y="${C - rr * Math.cos(mid)}" fill="${ink}"
+                   text-anchor="middle" dominant-baseline="central">${pctTxt(p)}</text>`;
+      }
+    }
+    a = a1;
+  });
+
+  const rowsHtml = sorted.map(r => {
+    const c = colour.get(r.key), v = r[state.measure];
+    return `<tr data-key="${esc(r.key)}"><td class="name"><span class="sw" style="background:var(${c})"></span>${esc(nice(level, r.key))}</td>
+            <td class="n">${fmt(v)}</td><td class="n">${pctTxt(pct(v, total))}</td>
+            <td class="n muted">${fmt(state.measure === "requests" ? r.ips : r.requests)}</td></tr>`;
+  }).join("");
+  const nextLevel = LEVELS[state.path.length + 1];
+  chart.innerHTML = `
+    <div class="viz">
+      <div class="pie-wrap">
+        <svg class="pie" viewBox="0 0 ${S} ${S}" role="img" aria-label="${esc(level)} share of ${measureLabel()}">${paths}${labels}</svg>
+        <div class="center"><div class="big">${fmt(total)}</div><div class="lbl">${measureLabel()}</div><div class="lbl muted">${esc(period)}</div></div>
+      </div>
+      <div>
+        <div class="legend-scroll">
+          <table>
+            <thead><tr><th>${esc(level[0].toUpperCase() + level.slice(1))}</th><th class="n">${state.measure === "requests" ? "Requests" : "Unique IPs"}</th>
+                   <th class="n">Share</th><th class="n">${state.measure === "requests" ? "IPs" : "Requests"}</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        <div class="note">Click a slice or row to break it down by ${esc(nextLevel === "ip" ? "IP address" : nextLevel)}.
+          ${slices.some(s => s.rest) ? "Smaller items are grouped as “Other” in the chart and listed individually here." : ""}</div>
+      </div>
+    </div>`;
+
+  const tip = $("tip");
+  chart.querySelectorAll("svg.pie path").forEach(p => {
+    const s = slices[+p.dataset.i];
+    p.addEventListener("mousemove", e => {
+      const other = s.rest ? `<div class="muted">${s.rest.slice(0, 5).map(r => esc(nice(level, r.key))).join(", ")}${s.rest.length > 5 ? "…" : ""}</div>` : "";
+      tip.innerHTML = `<b>${esc(s.label)}</b>${fmt(s.value)} ${measureLabel()} · ${pctTxt(pct(s.value, total))}` +
+        (s.row ? `<div class="muted">${fmt(state.measure === "requests" ? s.row.ips : s.row.requests)} ${state.measure === "requests" ? "unique IPs" : "requests"}</div>` : "") + other;
+      tip.style.display = "block";
+      tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
+      tip.style.top = (e.clientY + 14) + "px";
+      chart.querySelectorAll("svg.pie path").forEach(q => q.classList.toggle("dim", q !== p));
+      chart.querySelectorAll("tbody tr").forEach(tr => tr.classList.toggle("hot", s.key !== null && tr.dataset.key === s.key));
+    });
+    p.addEventListener("mouseleave", () => {
+      tip.style.display = "none";
+      chart.querySelectorAll("svg.pie path").forEach(q => q.classList.remove("dim"));
+      chart.querySelectorAll("tbody tr").forEach(tr => tr.classList.remove("hot"));
+    });
+    p.addEventListener("click", () => {
+      tip.style.display = "none";
+      if (s.key !== null) drill(s.key);
+      else chart.querySelector(".legend-scroll tbody tr:nth-child(" + (MAX_SLICES + 1) + ")")?.scrollIntoView({ block: "center" });
+    });
+  });
+  chart.querySelectorAll("tbody tr").forEach(tr => {
+    tr.tabIndex = 0;
+    tr.onclick = () => drill(tr.dataset.key);
+    tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tr.onclick(); } };
+  });
+}
+
+function renderIpTable(d, total, period) {
+  const rows = d.rows.map(r => `<tr data-ip="${esc(r.key)}"><td class="name">${esc(r.key)}</td>
+      <td class="n">${fmt(r.requests)}</td><td class="n">${pctTxt(pct(r.requests, d.requests))}</td></tr>`).join("");
+  $("chart").innerHTML = `
+    <div class="ink2" style="margin-bottom:8px">${fmt(d.ips)} IP addresses · ${fmt(d.requests)} requests · ${esc(period)}</div>
+    <div class="legend-scroll"><table>
+      <thead><tr><th>IP address</th><th class="n">Requests</th><th class="n">Share</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="note">Click an IP to see everything we know about it.${d.truncated ? " Showing the top 500." : ""}</div>`;
+  $("chart").querySelectorAll("tbody tr").forEach(tr => {
+    tr.tabIndex = 0;
+    tr.onclick = () => { $("ip").value = tr.dataset.ip; lookup(tr.dataset.ip); $("result").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    tr.onkeydown = e => { if (e.key === "Enter") tr.onclick(); };
+  });
+}
+
+function drill(key) {
+  if (key == null || state.path.length >= 3) return;
+  state.path = [...state.path, key];
+  render();
+}
+
+// ------------------------------------------------------------ lookup
+async function lookup(ip) {
+  const el = $("result");
+  el.innerHTML = '<div class="muted">Looking up…</div>';
+  const r = await fetch("/v1/ip/" + encodeURIComponent(ip.trim()));
+  const d = await r.json();
+  if (!r.ok) { el.innerHTML = `<div class="card">${esc(d.detail?.message || d.detail)}${d.detail?.special_purpose ? " (special-purpose: " + esc(d.detail.special_purpose) + ")" : ""}</div>`; return; }
+  const net = d.registry.network || {};
+  const rows = [
+    ["Category", `${CAT_LABEL[d.category.category] || d.category.category} / ${SUB_LABEL[d.category.subcategory] || (d.category.subcategory || "—").replace(/_/g, " ")}`],
+    ["Organisation", d.category.org_domain ? `${d.category.org_domain} (${d.category.org_name ?? ""})` : d.category.org_name],
+    ["Decided by", d.category.category_basis],
+    ["Registry", net.org ? `${net.org} · ${net.netname ?? ""} · ${(net.cidrs || []).join(" ")} (${d.registry.rir ?? "?"})` : d.registry.status],
+    ["Routing", d.routing.origin_asn ? `AS${d.routing.origin_asn} ${d.routing.as_name ?? ""} · ${d.routing.announced_prefix}` : null],
+    ["Location", [d.geo.city, d.geo.region, d.geo.country].filter(Boolean).join(", ")],
+    ["Reverse DNS", d.dns.ptr ? `${d.dns.ptr} ${d.dns.fcrdns ? "(confirmed)" : "(not forward-confirmed)"}` : d.dns.status],
+    ["Cloud", d.classification.cloud_provider ? [d.classification.cloud_provider, d.classification.cloud_service, d.classification.cloud_region].filter(Boolean).join(" · ") : null],
+    ["Flags", [d.classification.tor_exit ? "Tor exit" : null, ...(d.classification.blocklists || [])].filter(Boolean).join(", ") || null],
+    ["Seen", d.seen?.requests ? `${fmt(d.seen.requests)} requests on ${d.seen.days} day(s), ${d.seen.first_day} → ${d.seen.last_day}; ${(d.seen.hosts || []).join(", ")}` : null],
+  ];
+  el.innerHTML = `<div class="card"><dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}
+    <dt>Version</dt><dd>since ${esc(d.version.valid_from)}, last verified ${esc(d.version.last_verified_at?.slice(0, 10))} ·
+      <a href="/v1/ip/${encodeURIComponent(d.ip)}/history">history</a> · <a href="/v1/ip/${encodeURIComponent(d.ip)}">JSON</a></dd></dl></div>`;
+}
+
+// ------------------------------------------------------------ wiring
+document.querySelectorAll("#ingress button").forEach(b => b.onclick = async () => {
+  const v = b.dataset.v;
+  const next = state.ingress.includes(v) ? state.ingress.filter(x => x !== v) : [...state.ingress, v];
+  if (!next.length) return;                       // keep at least one controller selected
+  state.ingress = ALL_INGRESS.filter(x => next.includes(x));
+  state.path = [];
+  await loadApplications(); render();
+});
+$("ns").onchange = () => { state.ns = $("ns").value; state.host = ""; state.path = []; fillHosts(); render(); };
+$("host").onchange = () => { state.host = $("host").value; state.path = []; render(); };
+$("days").onchange = async () => { state.days = $("days").value; await loadApplications(); render(); };
+function setMeasure(m) {
+  state.measure = m;
+  $("m-requests").setAttribute("aria-pressed", m === "requests"); $("m-ips").setAttribute("aria-pressed", m === "ips");
+  render();
+}
+$("m-requests").onclick = () => setMeasure("requests");
+$("m-ips").onclick = () => setMeasure("ips");
+$("f").addEventListener("submit", e => { e.preventDefault(); lookup($("ip").value); });
+
+(async () => {
+  const ip = readUrl();
+  $("days").value = state.days;
+  $("m-requests").setAttribute("aria-pressed", state.measure === "requests"); $("m-ips").setAttribute("aria-pressed", state.measure === "ips");
+  await loadApplications();
+  render();
+  if (ip) { $("ip").value = ip; lookup(ip); }
+})();
+</script>
+</body>
+</html>

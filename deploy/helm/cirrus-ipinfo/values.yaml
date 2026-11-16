@@ -1,0 +1,147 @@
+# cirrus-ipinfo: test/feasibility deployment (e.g. the ncote namespace on mlc1).
+
+image:
+  repository: hub.k8s.ucar.edu/ncote/cirrus-ipinfo
+  tag: "0.1.14"
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Which cluster this release runs in, and whose Traefik logs the nightly job collects.
+cluster: mlc1
+# Both clusters. nwc1's client IPs may be the load balancer's until its LoxiLB upgrade lands
+# (collect flags that per source as source_ip_suspect).
+collectClusters: [mlc1, nwc1]
+
+# In-cluster networks per cluster: requests from these are pods/probes, not
+# clients, so collect drops them (and counts them). Other private space, e.g.
+# a partner's 10.116.0.0/16 arriving over a VPN, is kept.
+excludeCidrs:
+  mlc1:
+    - 10.0.0.0/16      # Cilium cluster-pool pod allocations (per-node /24s in 10.0.x.x)
+    - 10.42.0.0/16     # node spec.podCIDR range
+    - 10.96.0.0/12     # Service ClusterIPs
+  nwc1: []
+
+# --- Secrets (OpenBao via External Secrets) ---------------------------------
+# One OpenBao entry holds everything secret. The rendered Secret maps these
+# properties to the environment variables the pipeline reads.
+externalSecret:
+  storeRef:
+    kind: SecretStore
+    name: user-ro
+  key: ncote@ucar.edu/ipinfo
+  refreshInterval: 1h
+  properties:                       # OpenBao property names (change if yours differ)
+    s3AccessKey: s3_access_key
+    s3SecretKey: s3_secret_key
+    grafanaToken: grafana_token
+    lokiDatasourceUid: loki_datasource_uid
+    ipinfoToken: ipinfo_token       # optional: without it geo comes from DB-IP only
+    # optional: MaxMind GeoLite2 City (postal code, time zone, accuracy). Free account at
+    # maxmind.com → "Manage license keys". Without them geo below country level is DB-IP only.
+    maxmindAccountId: maxmind_account_id
+    maxmindLicenseKey: maxmind_license_key
+
+# --- Ceph RGW (S3) ----------------------------------------------------------
+s3:
+  endpoint: https://s3.k8s.ucar.edu:5443
+  bucket: ncote-test
+  prefix: cirrus-ipinfo/            # all keys go under this prefix ("" = bucket root)
+  region: us-east-1                 # RGW ignores it; SDKs require one
+  pathStyle: true                   # RGW has no wildcard DNS → path-style addressing
+
+# --- Grafana → Loki (log collection) ----------------------------------------
+grafana:
+  url: https://grafana.k8s.ucar.edu
+
+# Ingress controllers whose access logs are collected (Loki via Grafana). "{cluster}" is substituted.
+# format: traefik (JSON) | nginx (ingress-nginx default text format; no hostname in it, so the
+# "application" is the upstream <namespace>-<service>-<port>) | json (set `fields`, e.g. for an
+# ingress-nginx log-format-escape-json setup: {client: remote_addr, host: host, status: status,
+# size: bytes_sent, svc: proxy_upstream_name}).
+# Per-source line/parse counts are in pipeline_run.stats (collect → sources), so a format mismatch shows up there.
+logSources:
+  - name: traefik-external
+    format: traefik
+    selector: '{cluster="{cluster}", namespace="traefik", container="traefik-external"}'
+  - name: traefik-internal
+    format: traefik
+    selector: '{cluster="{cluster}", namespace="traefik", container="traefik-internal"}'
+  # One ingress-nginx controller per class; split by pod name (`pod` is structured metadata in Loki).
+  # Everything not named *external* counts as internal, so no nginx line is lost if names differ.
+  - name: nginx-external
+    format: nginx
+    selector: '{cluster="{cluster}", namespace="ingress-nginx"} | pod=~".*external.*"'
+  - name: nginx-internal
+    format: nginx
+    selector: '{cluster="{cluster}", namespace="ingress-nginx"} | pod!~".*external.*"'
+
+# IPs in these category/subcategory pairs are not stored at all (counted in the load stats).
+# internal/k8s_node = the CIRRUS nodes themselves (confirmed *.k8s.ucar.edu node names, or the
+# node addresses listed in category-rules.json).
+dropCategories: [internal/k8s_node]
+
+# --- Postgres (CloudNativePG) -----------------------------------------------
+postgres:
+  enabled: true
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+  storage:
+    size: 10Gi
+    storageClass: ""                # empty → cluster default
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {memory: 1Gi}
+  # If postgres.enabled=false, point at an existing Secret with a `uri` key.
+  existingUriSecret: ""
+
+# --- Jobs -------------------------------------------------------------------
+nightly:
+  schedule: "0 2 * * *"             # UTC; processes yesterday
+  suspend: false
+  rdapBudget: 5000
+  submitMax: 20000                  # submitted IPs (POST /v1/submit) enriched per run, oldest first
+  dnsNameservers: ""                # comma-separated; empty → cluster DNS
+  resources:
+    requests: {cpu: 500m, memory: 1536Mi}
+    limits: {memory: 3Gi}
+  workDirSize: 3Gi
+  activeDeadlineSeconds: 14400
+
+tenants:
+  # Lists namespaces (cluster-wide, read-only) to map namespace → Capsule tenant.
+  # Needs a ClusterRole; set false if you can't create one (requests then show
+  # tenant _unmapped unless Traefik logged the ingress namespace).
+  sync: true
+  schedule: "15 */6 * * *"
+
+migrate:
+  waitSeconds: 600
+
+# --- API + lookup page (FastAPI; Swagger UI at /docs) -----------------------
+# The API keeps the nightly's datasets in memory for on-demand lookups of IPs that aren't
+# stored: it downloads the newest S3 snapshots at start-up (ready once loaded, ~1-2 min) and
+# checks hourly for newer ones. It gets the S3 keys, not the Grafana token.
+api:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 1536Mi}
+    limits: {memory: 3Gi}
+  datasetDirSize: 2Gi               # two copies while a newer snapshot is swapped in
+  dnsNameservers: ""                # PTR lookups for on-demand records; empty → cluster DNS
+  ingress:
+    enabled: true
+    className: traefik-internal     # UCAR-network-only entry point; external-dns creates the record
+    host: ipinfo-test.k8s.ucar.edu
+    clusterIssuer: incommon
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}

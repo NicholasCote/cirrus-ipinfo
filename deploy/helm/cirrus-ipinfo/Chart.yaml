@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cirrus-ipinfo
+description: CIRRUS source-IP enrichment (nightly pipeline + Postgres)
+type: application
+version: 0.1.14
+appVersion: "0.1.14"

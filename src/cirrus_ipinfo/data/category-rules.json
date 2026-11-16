@@ -1,0 +1,164 @@
+{
+  "_comment": [
+    "Curated categorisation rules. Bump `version` on every edit: the version is part of the",
+    "enrichment hash, so affected IPs get a new version marked 'enricher' instead of a silent change.",
+    "Precedence (first match wins): special > internal > anonymizer > cloud ranges > domain_overrides",
+    "(confirmed PTR) > asn_overrides > confirmed-PTR suffix rules > ASN type (PeeringDB) >",
+    "org_keyword_rules (registry org, then AS name) > ptr_label_rules (any PTR) >",
+    "unconfirmed-PTR suffix rules > company_suffix (registry org / AS name) > unknown.",
+    "A confirmed PTR that matches a domain override or suffix rule beats an ASN override",
+    "(e.g. googlebot.com inside Google's AS15169 is a search-engine crawler).",
+    "Suffix patterns: '*' matches exactly one label; matched against the end of the PTR name.",
+    "ASNs below were checked against RIPE's asn.txt on 2026-11-13."
+  ],
+  "version": 3,
+
+  "internal": {
+    "subcategory": "ncar_ucar",
+    "domains": ["ucar.edu"],
+    "asns": [194],
+    "cidrs": [],
+    "_node_comment": "CIRRUS cluster nodes (confirmed PTR). Their requests are infrastructure (e.g. pods on nwc1 reaching bao via the node's address); the pipeline drops internal/k8s_node by default.",
+    "node_subcategory": "k8s_node",
+    "node_ptr_regex": "^(mlc1|nwc1)[a-z]+\\d+\\.k8s\\.ucar\\.edu$",
+    "node_cidrs": ["128.117.215.60/30", "128.117.215.64/29"]
+  },
+
+  "domain_overrides": {
+    "orcid.org":           ["education_research", "research_infrastructure"],
+    "internet2.edu":       ["education_research", "research_network"],
+    "es.net":              ["education_research", "research_network"],
+    "geant.org":           ["education_research", "research_network"],
+    "geant.net":           ["education_research", "research_network"],
+    "frgp.net":            ["education_research", "research_network"],
+
+    "censys-scanner.com":  ["automated", "security_scanner"],
+    "shadowserver.io":     ["automated", "security_scanner"],
+    "shodan.io":           ["automated", "security_scanner"],
+    "internet-census.org": ["automated", "security_scanner"],
+    "leakix.org":          ["automated", "security_scanner"],
+    "stretchoid.com":      ["automated", "security_scanner"],
+    "bufferover.run":      ["automated", "security_scanner"],
+    "infrawat.ch":         ["automated", "security_scanner"],
+    "apcosys.cc":          ["automated", "security_scanner"],
+    "googlebot.com":       ["automated", "search_engine"],
+    "ibou.io":             ["automated", "search_engine"],
+    "semrush.com":         ["automated", "seo_crawler"],
+    "babbar.eu":           ["automated", "seo_crawler"],
+    "reflection.ai":       ["automated", "ai_crawler"],
+    "fbsv.net":            ["automated", "link_preview"]
+  },
+
+  "asn_overrides": {
+    "293":    ["education_research", "research_network"],
+    "11164":  ["education_research", "research_network"],
+    "11537":  ["education_research", "research_network"],
+    "14041":  ["education_research", "research_network"],
+    "20965":  ["education_research", "research_network"],
+
+    "398324": ["automated", "security_scanner"],
+    "398705": ["automated", "security_scanner"],
+    "398722": ["automated", "security_scanner"],
+    "22168":  ["automated", "security_scanner"],
+    "209366": ["automated", "seo_crawler"],
+    "210743": ["automated", "seo_crawler"],
+    "218653": ["automated", "search_engine"],
+
+    "8075":   ["cloud", "microsoft"],
+    "15169":  ["cloud", "google"],
+    "396982": ["cloud", "gcp"],
+    "14618":  ["cloud", "aws"],
+    "16509":  ["cloud", "aws"],
+    "31898":  ["cloud", "oracle"],
+    "13335":  ["cloud", "cloudflare"],
+    "37963":  ["cloud", "alibaba"],
+    "45102":  ["cloud", "alibaba"],
+    "45090":  ["cloud", "tencent"],
+    "132203": ["cloud", "tencent"],
+    "55990":  ["cloud", "huawei"],
+    "136907": ["cloud", "huawei"],
+    "14061":  ["cloud", "digitalocean"],
+    "63949":  ["cloud", "akamai_linode"],
+    "20473":  ["cloud", "vultr"],
+    "16276":  ["cloud", "ovh"],
+    "24940":  ["cloud", "hetzner"],
+    "36352":  ["cloud", "hosting"],
+
+    "14593":  ["commercial", "isp_broadband"],
+    "7922":   ["commercial", "isp_broadband"],
+    "7018":   ["commercial", "isp_broadband"],
+    "22773":  ["commercial", "isp_broadband"],
+    "812":    ["commercial", "isp_broadband"],
+    "714":    ["commercial", "technology"],
+    "32934":  ["commercial", "technology"]
+  },
+
+  "ptr_suffix_rules": [
+    ["search.msn.com",     "automated",          "search_engine"],
+    ["crawl.sogou.com",    "automated",          "search_engine"],
+    ["applebot.apple.com", "automated",          "search_engine"],
+    ["k12.*.us",   "education_research", "k12"],
+    ["state.*.us", "government",         "us_state_local"],
+    ["edu",        "education_research", "university"],
+    ["ac.*",       "education_research", "university"],
+    ["edu.*",      "education_research", "university"],
+    ["mil",        "government",         "us_military"],
+    ["gov",        "government",         "us_government"],
+    ["gov.*",      "government",         "international"],
+    ["gob.*",      "government",         "international"],
+    ["gouv.*",     "government",         "international"],
+    ["go.*",       "government",         "international"],
+    ["gc.ca",      "government",         "international"],
+    ["mil.*",      "government",         "international"],
+    ["org",        "nonprofit",          "org"]
+  ],
+
+  "peeringdb_types": {
+    "Educational/Research": ["education_research", "research_network"],
+    "Government":           ["government", "other"],
+    "Non-Profit":           ["nonprofit", "org"],
+    "Cable/DSL/ISP":        ["commercial", "isp_broadband"],
+    "NSP":                  ["commercial", "transit"],
+    "Enterprise":           ["commercial", "enterprise"],
+    "Content":              ["cloud", "hosting"]
+  },
+
+  "_org_keyword_comment": [
+    "Case-insensitive regexes over the registry org name (maintainer handles such as HYDRA-MNT",
+    "are ignored) and then the AS name's description (the part after the AS handle).",
+    "Ordered: the first matching rule wins, so hosting is tested before ISP (an 'IDC' run by a",
+    "telco is a data centre)."
+  ],
+  "org_keyword_rules": [
+    ["\\b(universit\\w*|college|universidad\\w*|universidade|hochschule|polytechn\\w*|institute of technology|ecole normale)", "education_research", "university"],
+    ["\\b(ministry|ministerio|minist[eè]re|government|gobierno|municipal\\w*)\\b", "government", "other"],
+    ["\\b(foundation|fundaci[oó]n|stiftung|non-?profit)\\b", "nonprofit", "other"],
+    ["(hosting|server|datacenter|data[ -]cent(er|re)|colo(cation|crossing)?\\b|\\bvps|dedicated|bare-?metal|\\bidc\\b|cloud|\\bhost)", "cloud", "hosting"],
+    ["(telecom|telekom|telecomunica|telecommunica|\\btelco\\b|communications|comunica[cç]|\\bcable|cablevision|broadband|wireless|mobile|cellular|\\bfib(er|re|ra)\\b|\\binternet\\b|\\bisp\\b|\\bdsl\\b|satellite|starlink|telef[oó]nica|vodafone|\\borange\\b|comcast|verizon|charter|spectrum|\\bat&t\\b|unicom|chinanet|china telecom|china mobile|\\bcmnet\\b|rogers|\\bcox\\b|beltelecom|etisalat|kazakhtelecom)", "commercial", "isp_broadband"]
+  ],
+
+  "_ptr_label_comment": "Hostname tokens (split on '.' and '-', trailing digits dropped) that describe the line type.",
+  "ptr_label_rules": [
+    [["vps", "srv", "server", "hosting", "dedicated", "baremetal", "colo", "compute", "cloud"], "cloud", "hosting"],
+    [["customer", "dynamic", "dyn", "dsl", "adsl", "vdsl", "xdsl", "cable", "pool", "dhcp", "broadband",
+      "ftth", "fttx", "fttb", "fiber", "fibre", "residential", "res", "cpe", "ppp", "pppoe", "isp", "mobile",
+      "lte", "subscriber", "abo", "lightspeed", "clientes", "retail"], "commercial", "isp_broadband"]
+  ],
+
+  "_company_suffix_comment": "Legal-form suffixes on the registry org / AS description: a for-profit company of unknown type.",
+  "company_suffix": "\\b(inc|incorporated|llc|l\\.l\\.c|ltd|limited|corp|corporation|company|co\\.?,? ?ltd|gmbh|s\\.?a\\.?s|sarl|s\\.r\\.l|b\\.v|n\\.v|plc|pte|pty|k\\.k|eood|jsc|ooo|llp|ltda|s\\.p\\.a|s\\.a|s\\.a\\.? de c\\.v|s\\.l|ead|sp\\. ?z ?o\\.?o|d\\.o\\.o|kft|zrt|s\\.r\\.o|bhd|sdn|ab|as|oy|ag|ug|se|aps)\\.?(\\s*\\(.*\\))?\\s*$",
+
+  "_company_prefix_comment": "Legal forms written before the name (Russian LLC/OOO/AO/PAO, Indonesian PT).",
+  "company_prefix": "^(llc|ooo|ao|pao|zao|jsc|pt|cv)\\.?\\s+\\S",
+
+  "ignore_org_names": ["(^|[-_ ])mnt([-_ ]|$)", "maint$", "^lir-", "^private customer$", "^-$"],
+
+  "legacy": {
+    "_comment": "Approximation of the existing team report (PTR TLD buckets). Validate against their data.",
+    "domains": {"ucar.edu": "NCAR", "orcid.org": "orcid"},
+    "tld": {"com": "COM", "net": "NET", "edu": "UNIV", "gov": "GOV", "org": "ORG", "mil": "MIL"},
+    "no_ptr": "-",
+    "lookup_failed": "N/A",
+    "other": "OTHER"
+  }
+}

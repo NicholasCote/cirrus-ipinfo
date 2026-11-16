@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-pipeline
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+{{- if .Values.tenants.sync }}
+---
+# Read-only: namespace names and their capsule.clastix.io/tenant label.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-{{ include "ipinfo.fullname" . }}-namespace-reader
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-{{ include "ipinfo.fullname" . }}-namespace-reader
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Namespace }}-{{ include "ipinfo.fullname" . }}-namespace-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ipinfo.fullname" . }}-pipeline
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-sync-tenants
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.tenants.schedule | quote }}
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cirrus-ipinfo
+            app.kubernetes.io/component: sync-tenants
+        spec:
+          serviceAccountName: {{ include "ipinfo.fullname" . }}-pipeline
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext: {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: sync-tenants
+              image: {{ include "ipinfo.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["sync-tenants"]
+              envFrom:
+                - secretRef:
+                    name: {{ include "ipinfo.fullname" . }}
+                - configMapRef:
+                    name: {{ include "ipinfo.fullname" . }}
+              resources:
+                requests: {cpu: 50m, memory: 128Mi}
+                limits: {memory: 256Mi}
+              securityContext: {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+{{- end }}

@@ -1,0 +1,31 @@
+{{- if .Values.postgres.enabled }}
+# Database `ipinfo`, owned by ipinfo_owner (CNPG generates the password and
+# the <name>-app Secret with a `uri` key). The other roles are NOLOGIN group
+# roles the migration grants to; people/Grafana logins are added later.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-db
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgres.instances }}
+  imageName: {{ .Values.postgres.imageName }}
+  bootstrap:
+    initdb:
+      database: ipinfo
+      owner: ipinfo_owner
+      encoding: UTF8
+      localeCType: C
+      localeCollate: C
+  managed:
+    roles:
+      - {name: ipinfo_writer, ensure: present, login: false}
+      - {name: ipinfo_api, ensure: present, login: false}
+      - {name: ipinfo_reader, ensure: present, login: false}
+  storage:
+    size: {{ .Values.postgres.storage.size }}
+    {{- with .Values.postgres.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  resources: {{- toYaml .Values.postgres.resources | nindent 4 }}
+{{- end }}

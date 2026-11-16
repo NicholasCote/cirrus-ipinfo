@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ipinfo.fullname" . }}
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+data:
+  IPINFO_CLUSTER: {{ .Values.cluster | quote }}
+  IPINFO_COLLECT_CLUSTERS: {{ join "," .Values.collectClusters | quote }}
+  IPINFO_EXCLUDE_CIDRS: {{ include "ipinfo.excludeCidrs" . | quote }}
+  IPINFO_SYNC_TENANTS: {{ .Values.tenants.sync | quote }}
+  IPINFO_WORK_DIR: /work
+  AWS_ENDPOINT_URL_S3: {{ .Values.s3.endpoint | quote }}
+  AWS_REGION: {{ .Values.s3.region | quote }}
+  S3_BUCKET: {{ .Values.s3.bucket | quote }}
+  S3_PREFIX: {{ .Values.s3.prefix | default "" | quote }}
+  S3_URL_STYLE: {{ ternary "path" "virtual" .Values.s3.pathStyle | quote }}
+  GRAFANA_URL: {{ .Values.grafana.url | quote }}
+  IPINFO_LOG_SOURCES: {{ .Values.logSources | toJson | quote }}
+  IPINFO_DROP_CATEGORIES: {{ join "," .Values.dropCategories | quote }}
+  RDAP_BUDGET: {{ .Values.nightly.rdapBudget | quote }}
+  IPINFO_SUBMIT_MAX: {{ .Values.nightly.submitMax | quote }}
+  DNS_NAMESERVERS: {{ .Values.nightly.dnsNameservers | quote }}

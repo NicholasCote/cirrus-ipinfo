@@ -1,0 +1,51 @@
+# Hand-written RIPE-style split-dump sample (inetnum, inet6num, organisation, role).
+# Mirrors the public dump layout; values are fixture data.
+
+inetnum:        193.0.0.0 - 193.0.7.255
+netname:        RIPE-NCC
+descr:          RIPE Network Coordination Centre
+org:            ORG-RIEN1-RIPE
+country:        NL
+abuse-c:        ABUSE-RIPE
+status:         ASSIGNED PA
+created:        2003-03-17T12:15:57Z
+last-modified:  2017-12-04T14:42:31Z
+source:         RIPE
+
+% non-CIDR, more specific than the /21 above
+inetnum:        193.0.0.0 - 193.0.0.99
+netname:        FIXTURE-SMALL
+descr:          Small fixture assignment
++               with a continuation line
+country:        de
+status:         ASSIGNED PA
+created:        2020-01-01T00:00:00Z
+last-modified:  2024-06-01T00:00:00Z
+source:         RIPE # filtered
+
+inet6num:       2001:67c:2e8::/48
+netname:        RIPE-NCC-V6
+org:            ORG-RIEN1-RIPE
+country:        NL
+status:         ASSIGNED
+created:        2010-01-01T00:00:00Z
+last-modified:  2022-01-01T00:00:00Z
+source:         RIPE
+
+inetnum:        185.220.100.0 - 185.220.103.255
+netname:        FIXTURE-RELAYS
+descr:          Fixture relay operator
+country:        DE
+status:         ASSIGNED PA
+source:         RIPE
+
+organisation:   ORG-RIEN1-RIPE
+org-name:       Reseaux IP Europeens Network Coordination Centre (RIPE NCC)
+org-type:       RIR
+abuse-c:        ABUSE-RIPE
+source:         RIPE
+
+role:           Abuse Contact Role
+nic-hdl:        ABUSE-RIPE
+abuse-mailbox:  abuse@ripe.net
+source:         RIPE

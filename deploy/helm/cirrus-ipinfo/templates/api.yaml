@@ -1,0 +1,110 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-api
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cirrus-ipinfo
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: api
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 15
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "ipinfo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["api", "--port", "8000"]
+          ports:
+            - {name: http, containerPort: 8000}
+          envFrom:
+            - configMapRef:           # S3 endpoint/bucket/prefix, work dir (no secrets in it)
+                name: {{ include "ipinfo.fullname" . }}
+          env:
+            - name: IPINFO_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ipinfo.dbUriSecret" . }}
+                  key: uri
+            {{- range $var := list "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" }}
+            - name: {{ $var }}        # only the S3 keys from the shared secret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ipinfo.fullname" $ }}
+                  key: {{ $var }}
+            {{- end }}
+            - name: DNS_NAMESERVERS
+              value: {{ .Values.api.dnsNameservers | quote }}
+          lifecycle:
+            preStop:          # let Traefik drop the endpoint before the pod stops (no 504s on rollout)
+              exec: {command: ["sleep", "5"]}
+          readinessProbe:             # ready once on-demand datasets are loaded
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 30
+            failureThreshold: 4
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: work, mountPath: /work}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+        - name: work
+          emptyDir: {sizeLimit: {{ .Values.api.datasetDirSize }}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-api
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api
+  ports:
+    - {name: http, port: 80, targetPort: http}
+{{- if .Values.api.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ipinfo.fullname" . }}-api
+  labels: {{- include "ipinfo.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.api.ingress.clusterIssuer }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: {{ .Values.api.ingress.className }}
+  rules:
+    - host: {{ .Values.api.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ipinfo.fullname" . }}-api
+                port: {name: http}
+  tls:
+    - hosts: [{{ .Values.api.ingress.host }}]
+      secretName: {{ include "ipinfo.fullname" . }}-api-tls
+{{- end }}
+{{- end }}
